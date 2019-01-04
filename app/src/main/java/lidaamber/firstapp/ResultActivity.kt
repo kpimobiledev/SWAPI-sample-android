@@ -1,5 +1,6 @@
 package lidaamber.firstapp
 
+import android.content.Context
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutManager
@@ -17,11 +18,17 @@ import lidaamber.firstapp.model.FilmResults
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.io.BufferedReader
+import java.io.File
 
 /**
  * @author lidaamber
  */
 class ResultActivity : AppCompatActivity() {
+
+    companion object {
+        const val FILENAME = "films.txt"
+    }
 
     private val api = RETROFIT.create(Api::class.java)
 
@@ -31,7 +38,7 @@ class ResultActivity : AppCompatActivity() {
 
         supportActionBar?.title = "Films"
 
-        getFilmsFromServer()
+        if (!showFilmsFromFile()) getFilmsFromServer()
     }
 
     private fun showFilms(films: List<Film>) {
@@ -49,10 +56,51 @@ class ResultActivity : AppCompatActivity() {
                 response.body()?.let { filmResults ->
                     val films = filmResults.results.sortedBy { it.episodeNumber }
                     runOnUiThread { showFilms(films) }
+                    saveFilmsToFile(films)
                 }
             }
 
         })
+    }
+
+    private fun showFilmsFromFile() : Boolean {
+        val file = File(filesDir, FILENAME)
+
+        if (!file.exists()) {
+            return false
+        }
+
+        val input = openFileInput(FILENAME)
+
+        val reader = BufferedReader(input.reader())
+        val films = reader.readLines().map { line ->
+            val index = line.indexOf(":")
+            val title = line.substring(0, index)
+            val number = line.substring(index + 1, line.length).toInt()
+            return@map Film(title, number)
+        }
+
+        input.close()
+
+        showFilms(films)
+
+        return true
+    }
+
+    fun saveFilmsToFile(films: List<Film>) {
+        val file = File(filesDir, FILENAME)
+        if (!file.exists()) {
+            file.createNewFile()
+        }
+
+        val output = openFileOutput(FILENAME, Context.MODE_PRIVATE)
+
+        val filmsData = films.map { film ->
+            return@map "${film.title}:${film.episodeNumber}"
+        }.joinToString("\n")
+
+        output.write(filmsData.toByteArray())
+        output.close()
     }
 }
 
